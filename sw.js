@@ -17,7 +17,10 @@ async function serve(req) {
   const url = new URL(req.url);
   if (!key) key = await idbKey();
   if (!key) return Response.redirect(BASE, 302);
-  if (!man) man = JSON.parse(new TextDecoder().decode(await dec('m')));
+  if (!man) {
+    try { man = JSON.parse(new TextDecoder().decode(await dec('m'))); }
+    catch { key = null; await new Promise((res) => { const r = indexedDB.open('sfc-gate', 1); r.onsuccess = () => { const tx = r.result.transaction('k', 'readwrite'); tx.objectStore('k').delete('key'); tx.oncomplete = res; tx.onerror = res; }; r.onerror = res; }); return Response.redirect(BASE, 302); }
+  }
   let rel = decodeURIComponent(url.pathname.slice(APP.length));
   if (rel.startsWith('api/')) return new Response(JSON.stringify({ error: 'Saving works on the Netlify link only' }), { status: 503, headers: { 'content-type': 'application/json' } });
   if (rel === '' || rel.endsWith('/')) rel += 'index.html';
