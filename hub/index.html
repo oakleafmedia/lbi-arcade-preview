@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Arcade Hub</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, #151d29, #0a0d12 70%); color: #e9eef4; font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 16px; box-sizing: border-box; }
+  form { background: #10151d; border: 1px solid #222b38; border-radius: 14px; padding: 24px; width: min(370px, 100%); box-sizing: border-box; }
+  .logo { width: 34px; height: 34px; border-radius: 9px; margin-bottom: 14px; background: radial-gradient(circle at 50% 38%, #9dff5a 0 28%, transparent 29%), linear-gradient(#9dff5a, #9dff5a) 50% 86% / 4px 38% no-repeat, #1b2533; }
+  h1 { font-size: 20px; margin: 0 0 4px; } p { color: #7f8c9b; margin: 0 0 16px; font-size: 14px; }
+  input { width: 100%; box-sizing: border-box; padding: 12px; border-radius: 9px; border: 1px solid #2c3747; background: #0a0d12; color: #e9eef4; font-size: 16px; }
+  button, .go { display: block; box-sizing: border-box; margin-top: 10px; width: 100%; padding: 12px; border: 0; border-radius: 9px; background: #9dff5a; color: #0a0d12; font-weight: 800; font-size: 15px; cursor: pointer; text-align: center; text-decoration: none; }
+  .err { color: #ffb347; min-height: 20px; margin: 8px 0 0; font-size: 13px; }
+  .lock { background: none; color: #7f8c9b; font-weight: 500; }
+</style></head><body>
+<form id="f"><div class="logo"></div><h1>Arcade Hub</h1><p id="msg">Oak Leaf Media, private. Enter the password.</p>
+<input id="pw" type="password" autocomplete="current-password" aria-label="Password" autofocus><button id="open">Open</button><p class="err" id="err"></p>
+<div id="links" hidden><a class="go" href="app/">Open the hub</a><button type="button" class="lock" id="lock">Lock this browser</button></div>
+</form>
+<script>
+const $ = (id) => document.getElementById(id);
+const DB = 'hub-gate';
+const store = (k) => new Promise((res, rej) => { const r = indexedDB.open(DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('k');
+  r.onsuccess = () => { const tx = r.result.transaction('k', 'readwrite'); k ? tx.objectStore('k').put(k, 'key') : tx.objectStore('k').delete('key'); tx.oncomplete = res; tx.onerror = rej; }; r.onerror = rej; });
+function unlocked() { $('pw').hidden = true; $('open').hidden = true; $('msg').textContent = 'Unlocked on this browser.'; $('links').hidden = false; }
+async function boot() {
+  if (!('serviceWorker' in navigator) || !crypto.subtle) { $('err').textContent = "This browser can't open the hub. Try Chrome or Safari."; return; }
+  await navigator.serviceWorker.register('sw.js', { scope: './' }); await navigator.serviceWorker.ready;
+  const has = await new Promise((res) => { const r = indexedDB.open(DB, 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => { const g = r.result.transaction('k').objectStore('k').get('key'); g.onsuccess = () => res(!!g.result); g.onerror = () => res(false); }; r.onerror = () => res(false); });
+  if (has) unlocked();
+}
+$('f').addEventListener('submit', async (e) => {
+  e.preventDefault(); $('err').textContent = 'Checking…';
+  try {
+    const kdf = await (await fetch('kdf.json', { cache: 'no-cache' })).json();
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode($('pw').value), 'PBKDF2', false, ['deriveKey']);
+    const salt = new Uint8Array(kdf.salt.match(/../g).map((h) => parseInt(h, 16)));
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: kdf.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const b = new Uint8Array(await (await fetch('e/m', { cache: 'no-cache' })).arrayBuffer());
+    await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, key, b.slice(12)); // throws on a wrong password
+    await store(key); (await navigator.serviceWorker.ready).active.postMessage({ key });
+    $('err').textContent = ''; location.href = 'app/';
+  } catch { $('err').textContent = 'Wrong password.'; }
+});
+$('lock').addEventListener('click', async () => { await store(null); (await navigator.serviceWorker.ready).active.postMessage('lock'); location.reload(); });
+boot();
+</script></body></html>

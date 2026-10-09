@@ -5,3 +5,9 @@ the start page asks for the password, derives the key in the browser (PBKDF2), a
 decrypts the game on the fly. Without the password, nothing here is readable.
 
 Source lives in a private repo. This repo is regenerated from it, so don't edit files here by hand.
+
+## Arcade Hub (`hub/`)
+
+`hub/` is the Oak Leaf Arcade Hub, encrypted the same way with its own password. It's generated from
+`arcade-hub/` in `oakleafmedia/Brendan-Personal` (`HUB_PASSWORD=... node arcade-hub/tools/build.mjs <out>`).
+When regenerating the arcade preview, leave `hub/` in place.
