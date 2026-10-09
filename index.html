@@ -24,8 +24,11 @@ async function unlocked() {
 async function boot() {
   if (!('serviceWorker' in navigator) || !crypto.subtle) { $('err').textContent = 'This browser can\'t open the preview. Try Chrome or Safari.'; return; }
   await navigator.serviceWorker.register('sw.js', { scope: './' }); await navigator.serviceWorker.ready;
-  const has = await new Promise((res) => { const r = indexedDB.open('sfc-gate', 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => { const g = r.result.transaction('k').objectStore('k').get('key'); g.onsuccess = () => res(!!g.result); g.onerror = () => res(false); }; r.onerror = () => res(false); });
-  if (has) unlocked();
+  const has = await new Promise((res) => { const r = indexedDB.open('sfc-gate', 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => { const g = r.result.transaction('k').objectStore('k').get('key'); g.onsuccess = () => res(g.result || null); g.onerror = () => res(false); }; r.onerror = () => res(false); });
+  if (has) {
+    try { const b = new Uint8Array(await (await fetch('e/m', { cache: 'no-cache' })).arrayBuffer()); await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, has, b.slice(12)); unlocked(); }
+    catch { await store(null); (await navigator.serviceWorker.ready).active?.postMessage('lock'); $('err').textContent = 'The password changed. Enter it again.'; }
+  }
 }
 $('f').addEventListener('submit', async (e) => {
   e.preventDefault(); $('err').textContent = 'Checking…';
