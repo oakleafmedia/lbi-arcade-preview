@@ -12,7 +12,7 @@
 </style></head><body>
 <form id="f"><h1>LBI Arcade preview</h1><p>Private preview. Enter the password.</p>
 <input id="pw" type="password" autocomplete="current-password" aria-label="Password" autofocus><button>Open</button><p class="err" id="err"></p>
-<div class="links" id="links"><a href="app/lab/deep-drop/">Surf Fishing Classic</a><a href="app/lab/deep-drop/?present=1">Surf Fishing Classic (TV mode)</a><a href="app/lab/deep-drop/approve/">Art approval board</a><a href="#" id="lock" style="background:none;color:#8d99a6;font-weight:500">Lock this browser</a></div>
+<div class="links" id="links"><a href="app/lab/deep-drop/">Surf Fishing Classic</a><a href="app/lab/deep-drop/?present=1">Surf Fishing Classic (TV mode)</a><a href="app/lab/deep-drop/approve/">Art approval board</a><a href="app/lab/high-tide/">High Tide</a><a href="app/lab/birdie-shot/">Birdie Shot</a><a href="app/lab/birdie-shot/design/">Birdie Shot plan</a><a href="app/lab/birdie-shot/concepts/">Birdie Shot concept art</a><a href="app/lab/birdie-shot/map/">Birdie Shot map</a><a href="#" id="lock" style="background:none;color:#8d99a6;font-weight:500">Lock this browser</a></div>
 </form>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -24,8 +24,11 @@ async function unlocked() {
 async function boot() {
   if (!('serviceWorker' in navigator) || !crypto.subtle) { $('err').textContent = 'This browser can\'t open the preview. Try Chrome or Safari.'; return; }
   await navigator.serviceWorker.register('sw.js', { scope: './' }); await navigator.serviceWorker.ready;
-  const has = await new Promise((res) => { const r = indexedDB.open('sfc-gate', 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => { const g = r.result.transaction('k').objectStore('k').get('key'); g.onsuccess = () => res(!!g.result); g.onerror = () => res(false); }; r.onerror = () => res(false); });
-  if (has) unlocked();
+  const has = await new Promise((res) => { const r = indexedDB.open('sfc-gate', 1); r.onupgradeneeded = () => r.result.createObjectStore('k'); r.onsuccess = () => { const g = r.result.transaction('k').objectStore('k').get('key'); g.onsuccess = () => res(g.result || null); g.onerror = () => res(false); }; r.onerror = () => res(false); });
+  if (has) {
+    try { const b = new Uint8Array(await (await fetch('e/m', { cache: 'no-cache' })).arrayBuffer()); await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, has, b.slice(12)); unlocked(); }
+    catch { await store(null); (await navigator.serviceWorker.ready).active?.postMessage('lock'); $('err').textContent = 'The password changed. Enter it again.'; }
+  }
 }
 $('f').addEventListener('submit', async (e) => {
   e.preventDefault(); $('err').textContent = 'Checking…';
